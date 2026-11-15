@@ -198,20 +198,34 @@ def load_rules(where, rules):
     return out
 
 
-def rule_matches(pattern, name):
-    """Exact file name (with or without .png) first, then a normal glob."""
-    return (pattern in (name, Path(name).stem)
-            or fnmatch.fnmatchcase(name, pattern))
+def rule_matches(pattern, name, rel):
+    """A pattern without '/' is matched against the file name, a pattern
+    with '/' against the path relative to the repo root.
+
+    File name mode: exact name (with or without .png), else a glob.
+    Path mode: exact path (with or without .png), a folder (everything
+    below it), else a glob where '*' also matches '/'.
+    """
+    if "/" not in pattern:
+        return (pattern in (name, Path(name).stem)
+                or fnmatch.fnmatchcase(name, pattern))
+    folder = pattern.rstrip("/") + "/"
+    return (pattern in (rel, Path(rel).with_suffix("").as_posix())
+            or rel.startswith(folder)
+            or fnmatch.fnmatchcase(rel, pattern))
 
 
-def build_ornaments(names, base, rule_sets, used):
-    """Layer base -> global rules -> pack rules; later layers win per field."""
+def build_ornaments(files, base, rule_sets, used):
+    """Layer base -> global rules -> pack rules; later layers win per field.
+
+    files maps file name -> path relative to the repo root.
+    """
     result = {}
-    for name in names:
+    for name, rel in files.items():
         entry = dict(base)
         for set_id, rules in rule_sets:
             for i, (pattern, fields) in enumerate(rules):
-                if rule_matches(pattern, name):
+                if rule_matches(pattern, name, rel):
                     used.add((set_id, i))
                     entry.update(fields)
         if entry:
@@ -276,7 +290,7 @@ def main():
         # ornaments.json for this pack
         pack_rules = load_rules(f"packs.{pack_name}.ornaments", pack.get("ornaments"))
         all_rules[pack_name] = pack_rules
-        orn = build_ornaments(list(used), base,
+        orn = build_ornaments(used, base,
                               [("global", global_rules), (pack_name, pack_rules)],
                               used_rules)
         if orn:

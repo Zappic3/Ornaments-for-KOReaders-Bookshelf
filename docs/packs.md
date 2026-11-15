@@ -150,11 +150,33 @@ ornaments:
 
 ### `match`
 
-- Compared against the file name, with and without `.png`.
-- An exact name is checked first, so brackets and special characters work literally (`"Miku Figurine [Front].png"`).
-- Otherwise it is a glob (`*`, `?`).
-- If several rules match one file, they apply in order and later ones win per field.
+`match` works in one of two modes, depending on whether the pattern contains a `/`:
+
+| Pattern | Compared against | Examples |
+|---|---|---|
+| no `/` | the file name, with and without `.png` | `"Cheer Miku Figurine*"`, `"Miku Figurine [Front].png"` |
+| contains `/` | the path relative to the repo root | `"Hatsune Miku: Project Mirai 2/"`, `"Hatsune Miku: Project Mirai 2/Figurines/*Front*.png"` |
+
+- An exact name or path is checked first, so brackets and special characters work literally.
+- A path ending in `/` (or naming a folder) matches everything below that folder. A top-level folder needs the trailing slash (`"Hatsune Miku: Project Mirai 2/"`), otherwise it is read as a file name.
+- Otherwise the pattern is a glob (`*`, `?`). In path mode `*` also matches `/`.
+- If several rules match one file, they apply in order and later ones win per field. Put broad rules (such as a whole folder) first and specific ones after them.
 - The build prints a warning for rules that matched no file, which usually means a typo.
+
+Example: a default for a whole topic, overridden for single figures.
+
+```yaml
+ornaments:
+  - match: "Hatsune Miku: Project Mirai 2/"
+    info: "Hatsune Miku: Project Mirai 2"
+
+  - match: "Cheer Miku Figurine*"
+    info: |-
+      Cheer Miku Figurine
+      "Cheer for your favorite team with Miku and her pom-poms!"
+
+      Hatsune Miku: Project Mirai 2
+```
 
 ### Ornament fields
 
