@@ -2,6 +2,7 @@
 import fnmatch, shutil, subprocess, sys, zipfile
 from pathlib import Path
 import yaml
+import json
 
 ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / "build"
@@ -56,12 +57,18 @@ def collect(includes, excludes):
 def main():
     cfg = yaml.safe_load((ROOT / "packs.yml").read_text())
     defaults = cfg.get("defaults", {})
+    releases = cfg.get("releases", {})
 
     shutil.rmtree(DIST, ignore_errors=True)
     DIST.mkdir(parents=True)
+    zips = {tag: [] for tag in releases}
 
     for pack_name, pack in cfg["packs"].items():
         s = {**defaults, **pack}
+        tag = s.get("release")
+        if tag not in releases:
+            sys.exit(f"Pack '{pack_name}': missing or unknown release '{tag}'")
+
         w, h, r = int(s["width"]), int(s["height"]), int(s["outline"])
 
         files = collect(s.get("include", []), s.get("exclude", []))
@@ -71,7 +78,7 @@ def main():
         cache_dir = CACHE / f"{w}x{h}_r{r}"
         pack_dir = DIST / pack_name
         pack_dir.mkdir()
-        used = {}  # file name -> source rel path
+        used = {}
 
         for rel, src in files.items():
             if src.name in used:
@@ -83,16 +90,24 @@ def main():
             cached = cache_dir / rel
             if not cached.exists():
                 cached.parent.mkdir(parents=True, exist_ok=True)
-                print(f"processing {rel} ({w}x{h}, outline {r})")
+                print(f"processing {rel} ({w}x{h}, outline {r})", flush=True)
                 process(src, cached, w, h, r)
 
             shutil.copy(cached, pack_dir / src.name)
 
-        with zipfile.ZipFile(DIST / f"{pack_name}.zip", "w",
-                             zipfile.ZIP_DEFLATED) as z:
+        zip_path = DIST / f"{pack_name}.zip"
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
             for p in sorted(pack_dir.iterdir()):
                 z.write(p, p.name)
-        print(f"pack '{pack_name}': {len(files)} images")
+        zips[tag].append(zip_path.relative_to(ROOT).as_posix())
+        print(f"pack '{pack_name}': {len(files)} images", flush=True)
+
+    manifest = [
+        {"tag": tag, "title": rel.get("title", tag),
+         "notes": rel.get("notes", ""), "files": zips[tag]}
+        for tag, rel in releases.items() if zips[tag]
+    ]
+    (DIST / "releases.json").write_text(json.dumps(manifest, indent=2))
 
 
 if __name__ == "__main__":

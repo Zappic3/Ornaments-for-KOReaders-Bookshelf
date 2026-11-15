@@ -3,7 +3,6 @@ name: Build ornament packs
 on:
   push:
     branches: [main]
-    tags: ["v*"]
     paths-ignore: ["README.md", "docs/**"]
   workflow_dispatch:
 
@@ -25,13 +24,22 @@ jobs:
       - name: Build packs
         run: python scripts/build_packs.py
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ornament-packs
-          path: dist/*.zip
+      - name: Publish releases
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          while read -r rel; do
+            tag=$(jq -r .tag <<<"$rel")
+            title=$(jq -r .title <<<"$rel")
+            notes=$(jq -r .notes <<<"$rel")
+            mapfile -t files < <(jq -r '.files[]' <<<"$rel")
 
-      - name: Attach to release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*.zip
+            if gh release view "$tag" >/dev/null 2>&1 </dev/null; then
+              gh release edit "$tag" --title "$title" --notes "$notes" </dev/null
+              gh release upload "$tag" "${files[@]}" --clobber </dev/null
+            else
+              gh release create "$tag" "${files[@]}" \
+                --title "$title" --notes "$notes" --target "$GITHUB_SHA" </dev/null
+            fi
+          done < <(jq -c '.[]' dist/releases.json)

@@ -3,30 +3,41 @@ defaults:
   height: 600
   outline: 3
 
+releases:
+  miku-pm2:
+    title: "Hatsune Miku: Project Mirai 2"
+    notes: "Figures and objects from Project Mirai 2 for your bookshelf"
+
 packs:
   miku-pm2-figures:
+    release: miku-pm2
     include:
       - "Hatsune Miku: Project Mirai 2/Figurines"
 
   miku-pm2-figures-front:
+    release: miku-pm2
     include:
       - "Hatsune Miku: Project Mirai 2/Figurines/*Front*.png"
 
   miku-pm2-figures-rotated:
+    release: miku-pm2
     include:
       - "Hatsune Miku: Project Mirai 2/Figurines/*45°*.png"
 
   miku-pm2-figures-no-outline:
+    release: miku-pm2
     outline: 0
     include:
       - "Hatsune Miku: Project Mirai 2/Figurines"
 
   miku-pm2-figures-front-no-outline:
+    release: miku-pm2
     outline: 0
     include:
       - "Hatsune Miku: Project Mirai 2/Figurines/*Front*.png"
 
   miku-pm2-figures-rotated-no-outline:
+    release: miku-pm2
     outline: 0
     include:
       - "Hatsune Miku: Project Mirai 2/Figurines/*45°*.png"
