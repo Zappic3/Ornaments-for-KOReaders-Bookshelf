@@ -2,11 +2,28 @@ defaults:
   width: 400
   height: 600
   outline: 3
+  ornament:
+    tap: zoom
+    anchor: bottom
 
 releases:
   miku-pm2:
     title: "Hatsune Miku: Project Mirai 2"
     notes: "Figures and objects from Project Mirai 2 for your bookshelf"
+
+ornaments:
+  # default description for all Hatsune Miku: Project Mirai 2 elements
+  - match: "Hatsune Miku: Project Mirai 2/"
+    info: "Hatsune Miku: Project Mirai 2"
+
+
+  # descriptions for all elements
+  - match: "Cheer Miku Figurine*"
+    info: |-
+      Cheer Miku Figurine
+      “Cheer for your favorite team with Miku and her pom-poms!”
+
+      Hatsune Miku: Project Mirai 2
 
 packs:
   miku-pm2-figures:
