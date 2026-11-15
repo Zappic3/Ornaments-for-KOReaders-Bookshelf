@@ -1,0 +1,37 @@
+name: Build ornament packs
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths-ignore: ["README.md", "docs/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed for creating releases
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+          pip install pyyaml
+
+      - name: Build packs
+        run: python scripts/build_packs.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ornament-packs
+          path: dist/*.zip
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
