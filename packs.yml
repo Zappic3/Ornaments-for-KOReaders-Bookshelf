@@ -6,28 +6,28 @@ defaults:
 packs:
   miku-pm2-figures:
     include:
-      - "Hatsune Miku: Project Mirai 2/Figures"
+      - "Hatsune Miku: Project Mirai 2/Figurines"
 
   miku-pm2-figures-front:
     include:
-      - "Hatsune Miku: Project Mirai 2/Figures/*[Front].png"
+      - "Hatsune Miku: Project Mirai 2/Figurines/*[Front].png"
 
   miku-pm2-figures-rotated:
     include:
-      - "Hatsune Miku: Project Mirai 2/Figures/*[45°].png"
+      - "Hatsune Miku: Project Mirai 2/Figurines/*[45°].png"
 
   miku-pm2-figures-no-outline:
     outline: 0
     include:
-      - "Hatsune Miku: Project Mirai 2/Figures"
+      - "Hatsune Miku: Project Mirai 2/Figurines"
 
   miku-pm2-figures-front-no-outline:
     outline: 0
     include:
-      - "Hatsune Miku: Project Mirai 2/Figures/*[Front].png"
+      - "Hatsune Miku: Project Mirai 2/Figurines/*[Front].png"
 
   miku-pm2-figures-rotated-no-outline:
     outline: 0
     include:
-      - "Hatsune Miku: Project Mirai 2/Figures/*[45°].png"
+      - "Hatsune Miku: Project Mirai 2/Figurines/*[45°].png"
 
