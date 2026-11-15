@@ -41,6 +41,8 @@ figcaption{font-size:12px;margin-top:4px;word-break:break-word}
 """
 
 
+# ---------------------------------------------------------------- HTML site
+
 def esc(s):
     return html.escape(str(s))
 
@@ -96,6 +98,8 @@ def build_site(releases, packs):
     (SITE / "index.html").write_text(page("Ornament packs", index, 0))
 
 
+# ------------------------------------------------------- image processing
+
 def process(src: Path, dst: Path, w: int, h: int, r: int):
     iw, ih = w - 2 * r, h - 2 * r
     cmd = [
@@ -148,10 +152,84 @@ def publish_to_site(cached: Path, rel: str, settings: str) -> str:
     return h
 
 
+# ------------------------------------------------------ ornaments.json
+
+def _num(lo, hi):
+    return lambda v: (isinstance(v, (int, float)) and not isinstance(v, bool)
+                      and lo <= v <= hi)
+
+
+ORNAMENT_FIELDS = {
+    "scale":  _num(0.05, 4),
+    "lift":   _num(-1, 1.5),
+    "pad":    _num(-1, 2),
+    "trim":   _num(0, 0.5),
+    "anchor": lambda v: v in ("bottom", "top"),
+    "night":  lambda v: v in ("invert", "off"),
+    "mirror": lambda v: v in ("off", "always", "alternate"),
+    "tap":    lambda v: v == "zoom" or isinstance(v, dict),
+    "info":   lambda v: isinstance(v, str) and len(v) <= 4000,
+}
+
+
+def normalize(where, fields):
+    fields = dict(fields or {})
+    # YAML 1.1 turns an unquoted `off` into False
+    for k in ("mirror", "night"):
+        if fields.get(k) is False:
+            fields[k] = "off"
+    for k, v in fields.items():
+        check = ORNAMENT_FIELDS.get(k)
+        if check is None:
+            sys.exit(f"{where}: unknown ornament field '{k}'")
+        if not check(v):
+            sys.exit(f"{where}: invalid value for '{k}': {v!r}")
+    return fields
+
+
+def load_rules(where, rules):
+    out = []
+    for i, rule in enumerate(rules or []):
+        rule = dict(rule)
+        if "match" not in rule:
+            sys.exit(f"{where}[{i}]: missing 'match'")
+        pattern = str(rule.pop("match"))
+        out.append((pattern, normalize(f"{where}[{i}] ({pattern})", rule)))
+    return out
+
+
+def rule_matches(pattern, name):
+    """Exact file name (with or without .png) first, then a normal glob."""
+    return (pattern in (name, Path(name).stem)
+            or fnmatch.fnmatchcase(name, pattern))
+
+
+def build_ornaments(names, base, rule_sets, used):
+    """Layer base -> global rules -> pack rules; later layers win per field."""
+    result = {}
+    for name in names:
+        entry = dict(base)
+        for set_id, rules in rule_sets:
+            for i, (pattern, fields) in enumerate(rules):
+                if rule_matches(pattern, name):
+                    used.add((set_id, i))
+                    entry.update(fields)
+        if entry:
+            result[name] = entry
+    return result
+
+
+# ------------------------------------------------------------------ main
+
 def main():
-    cfg = yaml.safe_load((ROOT / "packs.yml").read_text())
+    cfg = yaml.safe_load((ROOT / "packs.yml").read_text(encoding="utf-8"))
     defaults = cfg.get("defaults", {})
     releases = cfg.get("releases", {})
+
+    base = normalize("defaults.ornament", defaults.get("ornament"))
+    global_rules = load_rules("ornaments", cfg.get("ornaments"))
+    all_rules = {"global": global_rules}
+    used_rules = set()
 
     shutil.rmtree(DIST, ignore_errors=True)
     shutil.rmtree(SITE, ignore_errors=True)
@@ -176,7 +254,7 @@ def main():
         cache_dir = CACHE / f"{w}x{h}_r{r}"
         pack_dir = DIST / pack_name
         pack_dir.mkdir()
-        used = {}
+        used = {}  # file name -> source rel path
         images = []
 
         for rel, src in files.items():
@@ -195,10 +273,24 @@ def main():
             shutil.copy(cached, pack_dir / src.name)
             images.append((src.stem, publish_to_site(cached, rel, cache_dir.name)))
 
+        # ornaments.json for this pack
+        pack_rules = load_rules(f"packs.{pack_name}.ornaments", pack.get("ornaments"))
+        all_rules[pack_name] = pack_rules
+        orn = build_ornaments(list(used), base,
+                              [("global", global_rules), (pack_name, pack_rules)],
+                              used_rules)
+        if orn:
+            (pack_dir / "ornaments.json").write_text(
+                json.dumps(orn, indent=2, ensure_ascii=False), encoding="utf-8")
+
+        # zip, optionally wrapped in a folder so it can be extracted
+        # straight into Bookshelf's ornaments/ directory
+        prefix = f"{s['folder']}/" if s.get("folder") else ""
         zip_path = DIST / f"{pack_name}.zip"
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
             for p in sorted(pack_dir.iterdir()):
-                z.write(p, p.name)
+                z.write(p, prefix + p.name)
+
         zips[tag].append(zip_path.relative_to(ROOT).as_posix())
         packs_info.append({
             "name": pack_name, "tag": tag, "w": w, "h": h, "r": r,
@@ -206,6 +298,13 @@ def main():
             "description": s.get("description", ""),
         })
         print(f"pack '{pack_name}': {len(files)} images", flush=True)
+
+    # warn about ornament rules that never matched anything (typo check)
+    for set_id, rules in all_rules.items():
+        for i, (pattern, _) in enumerate(rules):
+            if (set_id, i) not in used_rules:
+                print(f"::warning::ornament rule '{pattern}' ({set_id}) matched no file",
+                      flush=True)
 
     build_site(releases, packs_info)
 
