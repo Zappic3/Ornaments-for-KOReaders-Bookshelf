@@ -201,8 +201,9 @@ packs:
   miku-pm2-all-no-outline:
     release: miku-pm2
     description: "Includes everything (without outlines)"
+    outline: 0
     include:
-      - "Hatsune Miku: Project Mirai 2/*"
+      - "Hatsune Miku: Project Mirai 2"
 
   miku-pm2-figures:
     release: miku-pm2
