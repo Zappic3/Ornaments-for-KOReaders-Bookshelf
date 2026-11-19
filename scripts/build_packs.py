@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import fnmatch, hashlib, html, json, os, shutil, subprocess, sys, zipfile
+import fnmatch, hashlib, html, json, os, re, shutil, subprocess, sys, zipfile
 from pathlib import Path
 import yaml
 
@@ -16,6 +16,9 @@ SITE_URL = os.environ.get("SITE_URL", "").rstrip("/")
 MAGICK = shutil.which("magick") or shutil.which("convert")  # IM7 or IM6
 if not MAGICK:
     sys.exit("ImageMagick not found")
+# `identify` is `magick identify` in IM7 and a separate binary in IM6
+IDENTIFY = ([MAGICK, "identify"] if Path(MAGICK).stem == "magick"
+            else [shutil.which("identify") or "identify"])
 
 CSS = """
 :root{color-scheme:light dark;--bg:#fff;--fg:#1a1a1a;--card:#f1f1f4;--mut:#6b6b75;--acc:#0a6cff}
@@ -169,13 +172,15 @@ ORNAMENT_FIELDS = {
     "mirror": lambda v: v in ("off", "always", "alternate"),
     "tap":    lambda v: v == "zoom" or isinstance(v, dict),
     "info":   lambda v: isinstance(v, str) and len(v) <= 4000,
+    # build-time only, never written to ornaments.json: centre the piece
+    "center": lambda v: v in ("wall", "books", "off"),
 }
 
 
 def normalize(where, fields):
     fields = dict(fields or {})
     # YAML 1.1 turns an unquoted `off` into False
-    for k in ("mirror", "night"):
+    for k in ("mirror", "night", "center"):
         if fields.get(k) is False:
             fields[k] = "off"
     for k, v in fields.items():
@@ -215,10 +220,101 @@ def rule_matches(pattern, name, rel):
             or fnmatch.fnmatchcase(rel, pattern))
 
 
-def build_ornaments(files, base, rule_sets, used):
+# ---- centring: turn `center` into a lift value -------------------------
+# Same formulas as Bookshelf's Orn.sizeFor / SpineShelf.ornamentY, worked out
+# for a reference shelf (the `shelf:` section of packs.yml). Lift is measured
+# in stand heights, so the result hardly depends on the reference shelf.
+
+def center_geom(shelf):
+    row_h, gap, dp = shelf["row_height"], shelf["row_gap"], shelf["dp_scale"]
+    b = max(int(row_h * 0.02), int(4 * dp))
+    b = min(b, int(9 * dp))
+    fh = max(1, int(b * 1.4))
+    inset = int(b * 0.8)
+    stand = max(1, row_h - fh - inset)
+    edge = min(int(stand * 0.2), int(stand / 1.5 * 0.208))
+    surf = max(1, int(edge * 1.06))
+    hair = int(2 * dp)
+    return {"row_h": row_h, "gap": gap, "fh": fh, "stand": stand, "surf": surf,
+            "meet": max(0, gap - hair) + hair}
+
+
+def center_size(g, scale, anchor, lift, aspect, t, b):
+    h = int(g["stand"] * 0.8 * scale)
+    if anchor == "top":  # a hanging piece must fit between the two shelves
+        room0 = max(1, (g["row_h"] - g["fh"] - g["surf"]) + g["gap"] - g["fh"])
+        room = max(1, room0 - max(0, -lift) * g["stand"])
+        frac = (b - t) or 1
+        if h * frac > room:
+            h = int(room / frac)
+    w = int(h * aspect)
+    cap = max(1, int(g["stand"] * scale))
+    if w > cap:
+        w = cap
+        h = int(w / aspect)
+    return max(1, w), max(1, h)
+
+
+def center_lift(g, mode, scale, anchor, aspect, t, b):
+    """-> (lift, reachable). t and b: top and bottom of the visible drawing
+    as fractions of the image height."""
+    if mode == "wall":   # between the shelf above and the plank
+        target = (-g["meet"] + (g["row_h"] - g["fh"] - g["surf"])) / 2
+    else:                # the middle of the space the books stand in
+        target = g["stand"] / 2
+    lift, reachable = 0.0, True
+    for _ in range(8):
+        _, h = center_size(g, scale, anchor, lift, aspect, t, b)
+        if anchor == "top":  # can only be lowered from the shelf above
+            m = -(target - (b - t) * h / 2 + g["meet"])
+            if m > 0:
+                reachable = False
+            off = min(0, m)
+        else:
+            off = g["stand"] - h + (t + b) / 2 * h - target
+        lift = off / g["stand"]
+    return lift, reachable
+
+
+_box_cache = {}
+
+
+def content_box(path):
+    """-> (aspect, top, bottom) of a processed image: width/height, and the
+    visible drawing's top and bottom as fractions of the height."""
+    key = str(path)
+    if key not in _box_cache:
+        out = subprocess.run(IDENTIFY + ["-format", "%w %h %@", key],
+                             capture_output=True, text=True, check=True).stdout.split()
+        w, h = int(out[0]), int(out[1])
+        m = re.match(r"(\d+)x(\d+)\+(-?\d+)\+(-?\d+)", out[2])
+        bh, by = (int(m.group(2)), int(m.group(4))) if m else (h, 0)
+        _box_cache[key] = (w / h, max(0, by) / h, min(h, by + bh) / h)
+    return _box_cache[key]
+
+
+def apply_center(where, entry, path, geom):
+    mode = entry.pop("center", None)
+    if mode in (None, "off"):
+        return
+    aspect, t, b = content_box(path)
+    scale, anchor = entry.get("scale", 1), entry.get("anchor", "bottom")
+    base, ok = center_lift(geom, mode, scale, anchor, aspect, t, b)
+    lift = round(base + entry.get("lift", 0), 3)
+    if not ok:
+        print(f"::warning::{where}: cannot fully centre ({mode}, anchor {anchor}, "
+              f"scale {scale}); calculated lift {base:.2f}", flush=True)
+    if not -1 <= lift <= 1.5:
+        sys.exit(f"{where}: centred lift {lift} is outside -1..1.5 "
+                 f"(centre {base:.2f} + lift offset {entry.get('lift', 0)})")
+    entry["lift"] = lift
+
+
+def build_ornaments(files, base, rule_sets, used, images, geom):
     """Layer base -> global rules -> pack rules; later layers win per field.
 
-    files maps file name -> path relative to the repo root.
+    files maps file name -> path relative to the repo root; images maps file
+    name -> the processed image (used for `center`).
     """
     result = {}
     for name, rel in files.items():
@@ -228,6 +324,7 @@ def build_ornaments(files, base, rule_sets, used):
                 if rule_matches(pattern, name, rel):
                     used.add((set_id, i))
                     entry.update(fields)
+        apply_center(name, entry, images[name], geom)
         if entry:
             result[name] = entry
     return result
@@ -244,6 +341,15 @@ def main():
     global_rules = load_rules("ornaments", cfg.get("ornaments"))
     all_rules = {"global": global_rules}
     used_rules = set()
+
+    shelf = {"row_height": 420, "row_gap": 40, "dp_scale": 1.9,
+             **(cfg.get("shelf") or {})}
+    for k, v in shelf.items():
+        if k not in ("row_height", "row_gap", "dp_scale"):
+            sys.exit(f"shelf: unknown key '{k}'")
+        if not isinstance(v, (int, float)) or isinstance(v, bool) or v <= 0:
+            sys.exit(f"shelf.{k}: must be a positive number")
+    geom = center_geom(shelf)
 
     shutil.rmtree(DIST, ignore_errors=True)
     shutil.rmtree(SITE, ignore_errors=True)
@@ -269,6 +375,7 @@ def main():
         pack_dir = DIST / pack_name
         pack_dir.mkdir()
         used = {}  # file name -> source rel path
+        processed = {}  # file name -> processed image
         images = []
 
         for rel, src in files.items():
@@ -285,6 +392,7 @@ def main():
                 process(src, cached, w, h, r)
 
             shutil.copy(cached, pack_dir / src.name)
+            processed[src.name] = cached
             images.append((src.stem, publish_to_site(cached, rel, cache_dir.name)))
 
         # ornaments.json for this pack
@@ -292,7 +400,7 @@ def main():
         all_rules[pack_name] = pack_rules
         orn = build_ornaments(used, base,
                               [("global", global_rules), (pack_name, pack_rules)],
-                              used_rules)
+                              used_rules, processed, geom)
         if orn:
             (pack_dir / "ornaments.json").write_text(
                 json.dumps(orn, indent=2, ensure_ascii=False), encoding="utf-8")

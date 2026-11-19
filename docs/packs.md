@@ -7,6 +7,7 @@
 ```yaml
 defaults:      # values every pack inherits
 releases:      # one GitHub release per topic
+shelf:         # reference shelf used to calculate `center` (optional)
 ornaments:     # global ornament rules (optional)
 packs:         # the packs themselves
 ```
@@ -191,10 +192,41 @@ ornaments:
 | `trim` | 0 to 0.5 | Transparent side margin (glow, shadow) tucked behind the books, as a fraction of the image width. |
 | `night` | `invert` or `off` | Show the ornament inverted in night mode. |
 | `mirror` | `off`, `always` or `alternate` | Mirroring behavior. |
+| `center` | `wall`, `books` or `off` | Build-time only: calculates `lift` so the drawing is vertically centered. See [Centering](#centering). Never written to `ornaments.json`. |
 
 The build validates all fields and fails with a message pointing at the offending rule if a name is unknown or a value is out of range. Quote `"off"` in YAML, since an unquoted `off` is read as a boolean (the script converts it back, but quoting is cleaner).
 
 Readers can still override these values in their own personal `ornaments.json` inside the app. The generated file only sets the pack's defaults.
+
+### Centering
+
+`center` calculates the `lift` for every matching image, so posters and similar pieces hang in the middle without trial and error:
+
+```yaml
+ornaments:
+  - match: "Hatsune Miku: Project Mirai 2/Posters/"
+    anchor: bottom
+    center: wall
+    lift: 0.02       # optional: added to the calculated centre (+ = up)
+```
+
+- `center: wall` centers between the underside of the shelf above and the plank's top surface. `center: books` centers in the space the books stand in. They differ noticeably, because the plank's top surface is deep. `center: off` turns it off again, for example in a pack rule.
+- `lift` stays a normal number. Together with `center` it is an offset on top of the calculated centre, so `center: wall` + `lift: 0.02` ends up 0.02 above the centre. The written `ornaments.json` contains only the final `lift` value.
+- The calculation uses the actual processed image: its aspect ratio and the visible drawing (transparent margins are ignored), the rule's `scale` and its `anchor`. Put `scale` and `anchor` in the same rule or an earlier one.
+- With `anchor: top`, Bookshelf only lets a piece hang lower, never higher, so the calculated lift is zero or negative. If the piece can't be centered (it is too tall for the gap), the build prints a warning and uses the closest value.
+- The build fails if the final lift is outside -1 to 1.5.
+- Bookshelf applies a reader's own size change on top of the pack's `scale`, which moves the centre a little. The centering is exact for the pack's own values.
+
+### `shelf`
+
+The calculation needs a reference shelf. Lift is measured in book heights, so the defaults work for most devices, and you only need `shelf:` if you want to match your own reader more closely. The values are the same ones as in the ornament placement simulator.
+
+```yaml
+shelf:
+  row_height: 420   # px, height of one shelf row
+  row_gap: 40       # px, gap between two rows
+  dp_scale: 1.9     # DPI / 160
+```
 
 ## Preview site
 

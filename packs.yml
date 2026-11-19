@@ -18,7 +18,8 @@ ornaments:
 
   # default lift for all posters
   - match: "Hatsune Miku: Project Mirai 2/Posters/"
-    lift: 0.1
+    anchor: bottom
+    center: wall
 
   # figures
   - match: "Cheer Miku Figurine*"
@@ -197,6 +198,12 @@ ornaments:
 
 
 packs:
+  miku-pm2-all-no-outline:
+    release: miku-pm2
+    description: "Includes everything (without outlines)"
+    include:
+      - "Hatsune Miku: Project Mirai 2/*"
+
   miku-pm2-figures:
     release: miku-pm2
     description: "Frontal and rotated view, with outline."
