@@ -1,5 +1,5 @@
 defaults:
-  width: 400
+  width: 600
   height: 600
   outline: 3
   ornament:
@@ -14,16 +14,187 @@ releases:
 ornaments:
   # default description for all Hatsune Miku: Project Mirai 2 elements
   - match: "Hatsune Miku: Project Mirai 2/"
-    info: "Hatsune Miku: Project Mirai 2"
+    info: "A decorative element from Hatsune Miku: Project Mirai 2"
 
+  # default lift for all posters
+  - match: "Hatsune Miku: Project Mirai 2/Posters/"
+    lift: 0.1
 
-  # descriptions for all elements
+  # figures
   - match: "Cheer Miku Figurine*"
     info: |-
-      Cheer Miku Figurine
       “Cheer for your favorite team with Miku and her pom-poms!”
 
       Hatsune Miku: Project Mirai 2
+
+  - match: "GUMI Figurine*"
+    info: |-
+      A super-duper cute figure of this amazing cyber-idol! ♪
+
+      Hatsune Miku: Project Mirai 2
+
+  - match: "Hachune Miku Doll*"
+    info: |-
+      This chibi version of Miku is almost too cute for words.
+
+      Hatsune Miku: Project Mirai 2
+
+  - match: "Halloween Miku Figurine*"
+    info: |-
+      Trick or Treat! This little devil is frightfully cute!
+
+      Hatsune Miku: Project Mirai 2
+
+  - match: "KAITO Figurine*"
+    info: |-
+      Cool, collected and handsome, now in action figure form.
+
+      Hatsune Miku: Project Mirai 2
+
+  - match: "Len Figurine*"
+    info: |-
+      The electropop virtual singer brings his fresh and fun charm!
+
+      Hatsune Miku: Project Mirai 2
+
+  - match: "Luka Figurine*"
+    info: |-
+      A figurine of the suave, sexy, and bilingual Luka herself.
+
+      Hatsune Miku: Project Mirai 2
+
+  - match: "MEIKO Figurine*"
+    info: |-
+      A figurine of the gal whose voice'll stand out in a crowd.
+
+      Hatsune Miku: Project Mirai 2
+
+  - match: "Miku Figurine*"
+    info: |-
+      A figurine of the world super-star virtual idol herself! ♪
+
+      Hatsune Miku: Project Mirai 2
+
+  - match: "Mikudayo Figurine*"
+    info: |-
+      It's Miku, and yet not Miku. Somehow.
+
+      Hatsune Miku: Project Mirai 2
+
+  - match: "Rin Figurine*"
+    info: |-
+      The soulful virtual singer brings her fresh and fun charm!
+
+      Hatsune Miku: Project Mirai 2
+
+  - match: "Sakura Miku Figurine*"
+    info: |-
+      Ring in spring with this Miku who's all pretty in pink.
+
+      Hatsune Miku: Project Mirai 2
+
+  - match: "Snow Miku 2014 Figurine*"
+    info: |-
+      Miku glitters with the magic of winter snow.
+
+      Hatsune Miku: Project Mirai 2
+
+  - match: "Snow Miku 2015 Figurine*"
+    info: |-
+      This festive Miku is done in the style of an Ainu dwarf!
+
+      Hatsune Miku: Project Mirai 2
+
+  - match: "Snow Miku Figurine*"
+    info: |-
+      Bridal beauty amidst a gentle dusting of snow.
+
+      Hatsune Miku: Project Mirai 2
+
+  - match: "Yukata Miku Figurine*"
+    info: |-
+      Miku dresses all easy-breezy for the lovely summer nights.
+
+      Hatsune Miku: Project Mirai 2
+  # poster
+  - match: "Doremifa Rondo Poster*"
+    info: |-
+      You don't need to play an instrument to march along!
+
+      Hatsune Miku: Project Mirai 2
+
+  - match: "Fine Art (A)*"
+    info: |-
+      Just what IS the secret to her mysterious smile?
+
+      Hatsune Miku: Project Mirai 2
+
+  - match: "Fine Art (B)*"
+    info: |-
+      Girl with a Blue Bow. Give your home some mystique.
+
+      Hatsune Miku: Project Mirai 2
+
+  - match: "Fine Art (C)*"
+    info: |-
+      He's not screaming. He's covering his ears!
+
+      Hatsune Miku: Project Mirai 2
+
+  - match: "Kokoro Poster*"
+    info: |-
+      An acclaimed masterpiece now showing at the Mirai Theater!
+
+      Hatsune Miku: Project Mirai 2
+
+  - match: "Mirai DX Poster*"
+    info: |-
+      Make every day a deluxe Mirai day!
+
+      Hatsune Miku: Project Mirai DX
+
+  - match: "Project Mirai 2 Poster*"
+    info: |-
+      The sequel to Project Mirai. Man, Japan gets the best stuff...
+
+      Hatsune Miku: Project Mirai DX
+
+  - match: "Project Mirai Poster*"
+    info: |-
+      The original Project Mirai! Originally released in Japan on March 8th, 2012.
+
+      Hatsune Miku: Project Mirai DX
+
+  - match: "Senbonzakura Poster*"
+    info: |-
+      Hatsune Miku wants YOU to join the Sakura Squad!
+
+      Hatsune Miku: Project Mirai DX
+
+  - match: "SING&SMILE Poster*"
+    info: |-
+      Now accepting newcomers to join the cheer team!
+
+      Hatsune Miku: Project Mirai DX
+
+  - match: "Tricolore Airline Poster*"
+    info: |-
+      Tricolore Airline is now boarding for a first-class trip to fun!
+
+      Hatsune Miku: Project Mirai 2
+
+  - match: "TSUTAYA Poster*"
+    info: |-
+      A poster that could be obtained in PM2 by scanning a special AR card
+
+      Hatsune Miku: Project Mirai 2
+
+  - match: "Unused Chrismas Poster*"
+    info: |-
+      A Christmas poster featuring Miku, Rin, Len, Luka, Meiko, Kaito, and Teto. Unused and unobtainable in game.
+
+      Hatsune Miku: Project Mirai DX
+
 
 packs:
   miku-pm2-figures:
@@ -64,4 +235,11 @@ packs:
     outline: 0
     include:
       - "Hatsune Miku: Project Mirai 2/Figurines/*45°*.png"
+
+  miku-pm2-posters:
+    release: miku-pm2
+    description: "Posters and paintings from the game"
+    outline: 0
+    include:
+      - "Hatsune Miku: Project Mirai 2/Posters/*.png"
 
