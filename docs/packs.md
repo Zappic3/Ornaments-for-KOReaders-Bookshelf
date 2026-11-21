@@ -101,7 +101,7 @@ Release titles and notes are overwritten on every run, so edit them here, not on
 
 ## `parts`
 
-Parts are the building blocks, for example "figures, front view", "figures, rotated view" and "posters". They don't produce a download by themselves. Presets are built from them, and the builder page lets visitors mix them. Every part is processed twice: as configured (with outline) and with outline 0. If both are identical, as for posters whose rule says `outline: 0`, only one variant exists and the builder shows no outline toggle for that part.
+Parts are the building blocks, for example "figures, front view", "figures, rotated view" and "posters". They don't produce a download by themselves. Presets are built from them, and the builder page lets visitors mix them. Every part is built twice: without outline, and with outline. The builder offers an outline toggle for every part. It starts switched on if the config gives the part's images an outline (for example the figures) and switched off if not (for example posters whose rule says `outline: 0`). When a rule says `outline: 0`, the builder's outlined variant uses the width from `defaults.outline` (3 if that is 0 too).
 
 ```yaml
 parts:
@@ -123,7 +123,7 @@ parts:
 | `ornaments` | no | Ornament rules for this part. They apply wherever the part is used: in presets and in the builder. They can't contain [processing fields](#processing-fields-per-image). |
 
 - File names must be unique across all parts of one release, since parts of a release can be mixed. The build fails and shows both paths otherwise. Two parts may contain the very same file.
-- Whether a part gets an outline is decided per image by the same layers as everywhere else. The outline-free variant forces `outline: 0` for every image.
+- The configured outline of an image is decided by the same layers as everywhere else. In presets that is what you get. The builder's two variants are built by forcing `outline: 0` (plain) or the configured or default width (outlined).
 - The builder data is written to `packs.json` on the preview site. Each element lists its images and its finished `ornaments.json` entry per variant. The entries come from `defaults.ornament`, the global rules and the part's rules. A preset's own rules are not included, because they only exist in that preset's zip.
 
 ## `presets`
@@ -320,13 +320,14 @@ shelf:
 The site is generated automatically and needs no configuration in `packs.yml`. It is published at `https://OWNER.github.io/REPO/`.
 
 - The main page lists all releases. Each release page shows every preset with thumbnails and a download button, and the release description links back to it. Presets can be linked directly with `https://OWNER.github.io/REPO/<release>/#<preset-name>`.
-- If you define `parts`, the main page also links to the builder at `/builder/`.
+- If you define `parts`, the main page and every release page that has parts link to the builder at `/builder/` (release links open it with that release selected). The release description on GitHub gets the same two links, "Preview all packs" and "Build your own pack". Their wording is in `build_packs.py` where `releases.json` is written (search for `Preview all packs`).
+- Every page has a GitHub icon in the top right that links to the repository.
 
 ### Builder page
 
 Visitors pick a release, switch parts on or off, untick single images, choose a pack name and download one zip. The zip contains the images and a merged `ornaments.json`, inside a folder named after the pack, so it can be extracted straight into Bookshelf's `ornaments/` folder. Reserved names (Plain, mine, none, own) are rejected. Zips are created in the visitor's browser, nothing is uploaded anywhere.
 
-- **Outline toggle:** parts that exist with and without outline get a checkbox. Posters whose outline is always 0 don't.
-- **Custom outline:** if any part has the toggle, a "Custom outline" option appears. It lets visitors choose the outline width (1 to 20 px) and colour. The outline is then drawn in the browser on the outline-free image: the figure is scaled into the smaller inner box and its silhouette is grown by the chosen width, which is the same geometry as the build. Against the build's own result, the silhouettes overlap by about 99.5%, so edges can differ by a pixel. It applies to every selected part with the outline option ticked. Thumbnails keep showing the standard outline.
+- **Outline toggle:** every part has an outline checkbox. It starts switched on for parts whose images have an outline in the config, and off for the others, such as posters with `outline: 0`.
+- **Custom outline:** a "Custom outline" option is always available. It lets visitors choose the outline width (1 to 20 px) and colour. The outline is then drawn in the browser on the outline-free image: the figure is scaled into the smaller inner box and its silhouette is grown by the chosen width, which is the same geometry as the build. Against the build's own result, the silhouettes overlap by about 99.5%, so edges can differ by a pixel. It applies to every selected part with the outline option ticked. Thumbnails keep showing the standard outline.
 - **Ornament settings:** the merged `ornaments.json` uses the values calculated for the standard outline. For `center`ed pieces this can be off by a hair with a very different outline width.
 - **Dependencies:** the page loads JSZip 3.10.1 from cdnjs.

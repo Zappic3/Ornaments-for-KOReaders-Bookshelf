@@ -16,7 +16,8 @@ ornaments:
   - match: "Hatsune Miku: Project Mirai 2/"
     info: "A decorative element from Hatsune Miku: Project Mirai 2"
 
-  # all posters: no outline (they already have a frame), centered between the shelves
+  # all posters: no outline by default (they already have a frame), centered between the shelves.
+  # The pack builder still offers an outline for them, switched off at the start.
   - match: "Hatsune Miku: Project Mirai 2/Posters/"
     outline: 0
     anchor: bottom
@@ -199,8 +200,8 @@ ornaments:
 
 
 # Building blocks. Each part is built with and without outline, and the builder
-# page lets visitors mix them. Posters are always built without outline (see the
-# global poster rule above), so they get no outline option.
+# page lets visitors mix them. The outline starts switched on for parts whose images
+# have one in the config (figures) and off for the others (posters, see the poster rule above).
 parts:
   figures-front:
     release: miku-pm2

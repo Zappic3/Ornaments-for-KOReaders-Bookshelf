@@ -24,7 +24,9 @@ CSS = """
 :root{color-scheme:light dark;--bg:#fff;--fg:#1a1a1a;--card:#f1f1f4;--mut:#6b6b75;--acc:#0a6cff}
 @media(prefers-color-scheme:dark){:root{--bg:#16171a;--fg:#e8e8ea;--card:#232429;--mut:#9a9aa4;--acc:#6aa5ff}}
 body{margin:0;font:16px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--fg)}
-main{max-width:1100px;margin:0 auto;padding:24px 16px 64px}
+main{max-width:1100px;margin:0 auto;padding:24px 16px 64px;position:relative}
+.gh{position:absolute;top:22px;right:16px;color:var(--mut);line-height:0}
+.gh:hover{color:var(--acc)}.gh svg{width:28px;height:28px;fill:currentColor}
 a{color:var(--acc)}
 h1{margin:.2em 0}
 .mut{color:var(--mut)}
@@ -46,6 +48,9 @@ figcaption{font-size:12px;margin-top:4px;word-break:break-word}
 
 # ---------------------------------------------------------------- HTML site
 
+GH_ICON = ('<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>')
+
+
 def esc(s):
     return html.escape(str(s))
 
@@ -55,10 +60,12 @@ def page(title, body, depth):
     return (f'<!doctype html><html lang="en"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width,initial-scale=1">'
             f'<title>{esc(title)}</title><link rel="stylesheet" href="{css}">'
-            f'</head><body><main>{body}</main></body></html>')
+            f'</head><body><main><a class="gh" href="https://github.com/{REPO}" '
+            f'title="View the repository on GitHub" aria-label="GitHub repository">{GH_ICON}</a>'
+            f'{body}</main></body></html>')
 
 
-def build_site(releases, packs, has_builder=False):
+def build_site(releases, packs, builder_tags=frozenset()):
     SITE.mkdir(exist_ok=True)
     (SITE / "style.css").write_text(CSS)
     cards = []
@@ -95,15 +102,18 @@ def build_site(releases, packs, has_builder=False):
                 f'<a class="btn" href="{esc(dl)}">Download .zip</a></div>{desc}'
                 f'<div class="grid">{figs}</div></section>')
 
+        build_link = (f'<p><a href="../builder/#{esc(tag)}">Build your own pack from these parts '
+                      f'&rarr;</a></p>' if tag in builder_tags else "")
         body = (f'<p><a href="../">&larr; All releases</a></p><h1>{esc(title)}</h1>'
                 f'<p class="mut">{esc(rel.get("notes", ""))}</p>'
                 f'<p><a href="https://github.com/{REPO}/releases/tag/{esc(tag)}">Release page on GitHub</a></p>'
+                f'{build_link}'
                 f'<ul class="nav">{nav}</ul>{"".join(sections)}')
         (SITE / tag).mkdir(exist_ok=True)
         (SITE / tag / "index.html").write_text(page(title, body, 1))
 
     link = ('<p><a href="builder/">Build your own pack from the parts &rarr;</a></p>'
-            if has_builder else "")
+            if builder_tags else "")
     index = f'<h1>Ornament packs</h1>{link}<ul class="cards">{"".join(cards)}</ul>'
     (SITE / "index.html").write_text(page("Ornament packs", index, 0))
 
@@ -456,9 +466,18 @@ def main():
         parts[pname] = {"tag": tag, "files": files, "names": names, "rules": rules}
 
         elems = {n: {"name": n, "label": Path(n).stem, "variants": {}} for n in names}
-        for vname, key in (("default", {}), ("plain", {"outline": 0})):
+        fallback = int(defaults.get("outline") or 0) or 3  # width when a rule says outline 0
+        configured = {}  # does the config give this image an outline by default?
+        for vname in ("plain", "outlined"):
             processed, meta = {}, {}
             for n, rel in names.items():
+                if vname == "plain":
+                    key = {"outline": 0}
+                else:
+                    r0 = resolve_process(pname, defaults, {}, n, rel,
+                                         global_rules, [], used_rules)[2]
+                    configured[n] = r0 > 0
+                    key = {} if r0 > 0 else {"outline": fallback}
                 cached, (w, h, r), sdir = process_image(
                     pname, defaults, key, n, rel, files[rel], global_rules, [], used_rules)
                 processed[n] = cached
@@ -468,19 +487,15 @@ def main():
                                    (f"part:{pname}", rules, None)],
                                   used_rules, processed, geom)
             for n, (w, h, r, sdir, hsh) in meta.items():
-                if vname == "plain" and sdir == elems[n]["variants"]["default"]["settings"]:
-                    continue  # same image with and without outline (e.g. posters)
                 elems[n]["variants"][vname] = {
                     "img": f"img/{sdir}/{hsh}.png", "thumb": f"img/{sdir}/t/{hsh}.png",
-                    "width": w, "height": h, "outline": r, "settings": sdir,
+                    "width": w, "height": h, "outline": r,
                     "ornament": orn.get(n, {})}
-        for e in elems.values():
-            for v in e["variants"].values():
-                del v["settings"]
         site_parts[tag].append({
             "name": pname, "title": part.get("title", pname),
             "description": part.get("description", ""),
-            "outline_toggle": any("plain" in e["variants"] for e in elems.values()),
+            # whether the builder starts with the outline switched on
+            "outline_default": any(configured.values()),
             "elements": sorted(elems.values(), key=lambda e: e["name"])})
         print(f"part '{pname}': {len(names)} images", flush=True)
 
@@ -567,13 +582,16 @@ def main():
                 print(f"::warning::ornament rule '{pattern}' ({set_id}) matched no file",
                       flush=True)
 
-    has_builder = any(site_parts.values())
-    build_site(releases, packs_info, has_builder)
+    builder_tags = {t for t, v in site_parts.items() if v}
+    has_builder = bool(builder_tags)
+    build_site(releases, packs_info, builder_tags)
 
     # data and page for the mix-and-match builder
     if has_builder:
         (SITE / "builder").mkdir()
-        shutil.copy(ROOT / "scripts" / "builder.html", SITE / "builder" / "index.html")
+        page_src = (ROOT / "scripts" / "builder.html").read_text(encoding="utf-8")
+        (SITE / "builder" / "index.html").write_text(
+            page_src.replace("__REPO__", REPO), encoding="utf-8")
         data = {"repo": REPO, "releases": {
             tag: {"title": rel.get("title", tag), "notes": rel.get("notes", ""),
                   "parts": site_parts[tag]}
@@ -587,7 +605,10 @@ def main():
             continue
         notes = rel.get("notes", "")
         if SITE_URL:
-            notes += f"\n\n**[Preview all packs]({SITE_URL}/{tag}/)**"
+            links = [f"**[Preview all packs]({SITE_URL}/{tag}/)**"]
+            if tag in builder_tags:
+                links.append(f"**[Build your own pack]({SITE_URL}/builder/#{tag})**")
+            notes += "\n\n" + " · ".join(links)
         manifest.append({"tag": tag, "title": rel.get("title", tag),
                          "notes": notes.strip(), "files": zips[tag]})
     (DIST / "releases.json").write_text(json.dumps(manifest, indent=2))

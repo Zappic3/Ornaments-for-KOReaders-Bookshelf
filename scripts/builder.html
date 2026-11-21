@@ -6,7 +6,8 @@
 :root{--bg:#fff;--fg:#1a1a1a;--card:#f1f1f4;--mut:#6b6b75;--acc:#0a6cff;--line:#d9d9e0;color-scheme:light dark}
 @media(prefers-color-scheme:dark){:root{--bg:#16171a;--fg:#e8e8ea;--card:#232429;--mut:#9a9aa4;--acc:#6aa5ff;--line:#38393f}}
 body{margin:0;font:16px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--fg)}
-main{max-width:1100px;margin:0 auto;padding:24px 16px 150px}
+main{max-width:1100px;margin:0 auto;padding:24px 16px 150px;position:relative}
+.gh{position:absolute;top:22px;right:16px;color:var(--mut);line-height:0}.gh:hover{color:var(--acc)}.gh svg{width:28px;height:28px;fill:currentColor}
 a{color:var(--acc)}.mut{color:var(--mut)}h1{margin:.2em 0}
 select,input[type=text],button{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
 button{cursor:pointer}button.p{background:var(--acc);color:#fff;border:0;padding:8px 18px}
@@ -27,6 +28,7 @@ padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px))}
 .cust{display:flex;align-items:center;gap:6px}.cust input[type=number]{width:60px}
 .cust input[type=color]{padding:0;width:34px;height:30px;border:1px solid var(--line);border-radius:6px;background:none}
 </style></head><body><main>
+<a class="gh" href="https://github.com/__REPO__" title="View the repository on GitHub" aria-label="GitHub repository"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
 <p><a href="../">&larr; All releases</a></p>
 <h1>Pack builder</h1>
 <p class="mut">Pick parts and images, then download one zip. Extract it into Bookshelf’s <code>ornaments/</code> folder.</p>
@@ -34,7 +36,7 @@ padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px))}
 <div id="parts"></div>
 <div class="dock"><div>
 <input type="text" id="name" placeholder="Pack name (folder name in Bookshelf)">
-<span class="cust" id="cust" hidden><label><input type="checkbox" id="co"> Custom outline</label>
+<span class="cust" id="cust"><label><input type="checkbox" id="co"> Custom outline</label>
 <input type="number" id="cw" min="1" max="20" value="3"> px <input type="color" id="cc" value="#000000" title="Outline colour"></span>
 <span id="sum" class="mut"></span><span id="msg" class="mut"></span>
 <button class="p" id="go">Download .zip</button>
@@ -44,8 +46,8 @@ padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px))}
 const $=id=>document.getElementById(id),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let D,tag,state={};
 const R=()=>D.releases[tag];
-const S=p=>state[tag+'/'+p.name]||(state[tag+'/'+p.name]={on:false,outline:true,off:new Set()});
-const V=(p,e)=>(!S(p).outline&&e.variants.plain)||e.variants.default;
+const S=p=>state[tag+'/'+p.name]||(state[tag+'/'+p.name]={on:false,outline:!!p.outline_default,off:new Set()});
+const V=(p,e)=>S(p).outline?e.variants.outlined:e.variants.plain;
 const clean=s=>s.replace(/[\\\/:*?"<>|]/g,'-').trim();
 fetch('../packs.json').then(r=>r.json()).then(d=>{
   D=d;const tags=Object.keys(d.releases);
@@ -53,7 +55,7 @@ fetch('../packs.json').then(r=>r.json()).then(d=>{
   const h=location.hash.slice(1);tag=tags.includes(h)?h:tags[0];$('rel').value=tag;pick()
 }).catch(()=>{$('parts').innerHTML='<p>Could not load packs.json.</p>'});
 $('rel').onchange=()=>{tag=$('rel').value;location.hash=tag;pick()};
-function pick(){$('name').value=clean(R().title)+' mix';$('cust').hidden=!R().parts.some(p=>p.outline_toggle);draw()}
+function pick(){$('name').value=clean(R().title)+' mix';draw()}
 function draw(){
   $('parts').innerHTML=R().parts.map((p,i)=>{const st=S(p);
     const els=p.elements.map((e,j)=>{const v=V(p,e),x=st.off.has(e.name);
@@ -62,7 +64,7 @@ function draw(){
     return `<section class="part${st.on?'':' off'}" data-i="${i}"><div class="hd">
 <label><input type="checkbox" data-part="${i}"${st.on?' checked':''}><h2>${esc(p.title)}</h2></label>
 <span class="mut">${p.elements.length} images</span>
-${p.outline_toggle?`<label><input type="checkbox" data-ol="${i}"${st.outline?' checked':''}> Outline</label>`:''}
+<label><input type="checkbox" data-ol="${i}"${st.outline?' checked':''}> Outline</label>
 <span class="sp"><button data-all="${i}">All</button><button data-none="${i}">None</button></span></div>
 ${p.description?`<p class="mut">${esc(p.description)}</p>`:''}<div class="grid">${els}</div></section>`}).join('');
   count()}
@@ -101,7 +103,7 @@ $('go').onclick=async()=>{
   $('go').disabled=true;const zip=new JSZip(),dir=zip.folder(name),orn={},jobs=[];
   for(const p of R().parts){const st=S(p);if(!st.on)continue;
     for(const e of p.elements){if(st.off.has(e.name))continue;const v=V(p,e);
-      const dyn=$('co').checked&&st.outline&&e.variants.plain;
+      const dyn=$('co').checked&&st.outline;
       jobs.push({n:e.name,u:'../'+(dyn?e.variants.plain:v).img,dyn:dyn?e.variants.plain:null});if(Object.keys(v.ornament).length)orn[e.name]=v.ornament}}
   try{
     for(let i=0;i<jobs.length;i+=6){
