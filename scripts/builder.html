@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pack builder</title>
+<style>
+:root{--bg:#fff;--fg:#1a1a1a;--card:#f1f1f4;--mut:#6b6b75;--acc:#0a6cff;--line:#d9d9e0;color-scheme:light dark}
+@media(prefers-color-scheme:dark){:root{--bg:#16171a;--fg:#e8e8ea;--card:#232429;--mut:#9a9aa4;--acc:#6aa5ff;--line:#38393f}}
+body{margin:0;font:16px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+main{max-width:1100px;margin:0 auto;padding:24px 16px 150px}
+a{color:var(--acc)}.mut{color:var(--mut)}h1{margin:.2em 0}
+select,input[type=text],button{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+button{cursor:pointer}button.p{background:var(--acc);color:#fff;border:0;padding:8px 18px}
+button:disabled{opacity:.5;cursor:default}
+.part{background:var(--card);border-radius:10px;padding:14px;margin-top:14px}
+.hd{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px}.hd h2{margin:0;font-size:18px}
+.hd label{display:flex;align-items:center;gap:6px}.sp{margin-left:auto;display:flex;gap:6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:12px}
+.off .grid{opacity:.35;pointer-events:none}
+.el{position:relative;background:var(--bg);border-radius:8px;padding:6px;font-size:12px;cursor:pointer;display:block;word-break:break-word}
+.el input{position:absolute;top:8px;left:8px}.el img{display:block;width:100%;height:auto;border-radius:4px;
+background:repeating-conic-gradient(#8884 0% 25%,transparent 0% 50%) 0 0/16px 16px}
+.el.x img{opacity:.3}
+.dock{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);
+padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px))}
+.dock div{max-width:1100px;margin:0 auto;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.dock input[type=text]{flex:1;min-width:180px}
+.cust{display:flex;align-items:center;gap:6px}.cust input[type=number]{width:60px}
+.cust input[type=color]{padding:0;width:34px;height:30px;border:1px solid var(--line);border-radius:6px;background:none}
+</style></head><body><main>
+<p><a href="../">&larr; All releases</a></p>
+<h1>Pack builder</h1>
+<p class="mut">Pick parts and images, then download one zip. Extract it into Bookshelf’s <code>ornaments/</code> folder.</p>
+<label>Release <select id="rel"></select></label>
+<div id="parts"></div>
+<div class="dock"><div>
+<input type="text" id="name" placeholder="Pack name (folder name in Bookshelf)">
+<span class="cust" id="cust" hidden><label><input type="checkbox" id="co"> Custom outline</label>
+<input type="number" id="cw" min="1" max="20" value="3"> px <input type="color" id="cc" value="#000000" title="Outline colour"></span>
+<span id="sum" class="mut"></span><span id="msg" class="mut"></span>
+<button class="p" id="go">Download .zip</button>
+</div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+const $=id=>document.getElementById(id),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let D,tag,state={};
+const R=()=>D.releases[tag];
+const S=p=>state[tag+'/'+p.name]||(state[tag+'/'+p.name]={on:false,outline:true,off:new Set()});
+const V=(p,e)=>(!S(p).outline&&e.variants.plain)||e.variants.default;
+const clean=s=>s.replace(/[\\\/:*?"<>|]/g,'-').trim();
+fetch('../packs.json').then(r=>r.json()).then(d=>{
+  D=d;const tags=Object.keys(d.releases);
+  $('rel').innerHTML=tags.map(t=>`<option value="${esc(t)}">${esc(d.releases[t].title)}</option>`).join('');
+  const h=location.hash.slice(1);tag=tags.includes(h)?h:tags[0];$('rel').value=tag;pick()
+}).catch(()=>{$('parts').innerHTML='<p>Could not load packs.json.</p>'});
+$('rel').onchange=()=>{tag=$('rel').value;location.hash=tag;pick()};
+function pick(){$('name').value=clean(R().title)+' mix';$('cust').hidden=!R().parts.some(p=>p.outline_toggle);draw()}
+function draw(){
+  $('parts').innerHTML=R().parts.map((p,i)=>{const st=S(p);
+    const els=p.elements.map((e,j)=>{const v=V(p,e),x=st.off.has(e.name);
+      return `<label class="el${x?' x':''}"><input type="checkbox" data-i="${i}" data-j="${j}"${x?'':' checked'}>
+<img loading="lazy" src="../${esc(v.thumb)}" alt="">${esc(e.label)}</label>`}).join('');
+    return `<section class="part${st.on?'':' off'}" data-i="${i}"><div class="hd">
+<label><input type="checkbox" data-part="${i}"${st.on?' checked':''}><h2>${esc(p.title)}</h2></label>
+<span class="mut">${p.elements.length} images</span>
+${p.outline_toggle?`<label><input type="checkbox" data-ol="${i}"${st.outline?' checked':''}> Outline</label>`:''}
+<span class="sp"><button data-all="${i}">All</button><button data-none="${i}">None</button></span></div>
+${p.description?`<p class="mut">${esc(p.description)}</p>`:''}<div class="grid">${els}</div></section>`}).join('');
+  count()}
+function count(){let n=0;for(const p of R().parts){const st=S(p);if(st.on)n+=p.elements.length-st.off.size}
+  $('sum').textContent=n+' images';$('go').disabled=!n}
+$('parts').onclick=e=>{const t=e.target,d=t.dataset,P=R().parts;
+  if('part' in d){S(P[d.part]).on=t.checked}
+  else if('ol' in d){S(P[d.ol]).outline=t.checked}
+  else if('all' in d){S(P[d.all]).off.clear()}
+  else if('none' in d){P[d.none].elements.forEach(x=>S(P[d.none]).off.add(x.name))}
+  else if('j' in d){const p=P[d.i],n=p.elements[d.j].name;t.checked?S(p).off.delete(n):S(p).off.add(n);
+    t.closest('.el').classList.toggle('x',!t.checked);count();return}
+  else return;
+  draw()};
+// Custom outline: re-fit the outline-free image into the smaller inner box, then
+// dilate its silhouette by R pixels (same geometry as the build's ImageMagick step).
+async function outline(url,W,H){
+  const R=Math.max(1,Math.min(20,Math.round(+$('cw').value||3))),col=$('cc').value;
+  const img=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=no;i.src=url});
+  const mk=(w,h)=>{const c=document.createElement('canvas');c.width=w;c.height=h;return c};
+  const c0=mk(W,H),x0c=c0.getContext('2d');x0c.drawImage(img,0,0);
+  const d=x0c.getImageData(0,0,W,H).data;let a=W,b=H,e=-1,f=-1;
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(d[(y*W+x)*4+3]){if(x<a)a=x;if(x>e)e=x;if(y<b)b=y;if(y>f)f=y}
+  if(e<0)return fetch(url).then(r=>r.blob());
+  const cw=e-a+1,ch=f-b+1,k=Math.min((W-2*R)/cw,(H-2*R)/ch),sw=Math.round(cw*k),sh=Math.round(ch*k);
+  const fig=mk(sw+2*R,sh+2*R),fc=fig.getContext('2d');fc.imageSmoothingQuality='high';fc.drawImage(img,a,b,cw,ch,R,R,sw,sh);
+  const sil=mk(fig.width,fig.height),sc=sil.getContext('2d');sc.drawImage(fig,0,0);
+  sc.globalCompositeOperation='source-in';sc.fillStyle=col;sc.fillRect(0,0,sil.width,sil.height);
+  const out=mk(W,H),oc=out.getContext('2d'),ox=Math.round((W-fig.width)/2),oy=H-fig.height;
+  for(let dy=-R;dy<=R;dy++)for(let dx=-R;dx<=R;dx++)if(dx*dx+dy*dy<=R*R)oc.drawImage(sil,ox+dx,oy+dy);
+  oc.drawImage(fig,ox,oy);
+  return new Promise(ok=>out.toBlob(ok,'image/png'))}
+$('go').onclick=async()=>{
+  const name=clean($('name').value);
+  if(!name||/^(plain|mine|none|own)$/i.test(name)){$('msg').textContent='Choose another name (reserved or empty).';return}
+  $('go').disabled=true;const zip=new JSZip(),dir=zip.folder(name),orn={},jobs=[];
+  for(const p of R().parts){const st=S(p);if(!st.on)continue;
+    for(const e of p.elements){if(st.off.has(e.name))continue;const v=V(p,e);
+      const dyn=$('co').checked&&st.outline&&e.variants.plain;
+      jobs.push({n:e.name,u:'../'+(dyn?e.variants.plain:v).img,dyn:dyn?e.variants.plain:null});if(Object.keys(v.ornament).length)orn[e.name]=v.ornament}}
+  try{
+    for(let i=0;i<jobs.length;i+=6){
+      $('msg').textContent=`Loading ${i}/${jobs.length}…`;
+      await Promise.all(jobs.slice(i,i+6).map(async j=>{
+        if(j.dyn){dir.file(j.n,await outline(j.u,j.dyn.width,j.dyn.height));return}
+        const r=await fetch(j.u);
+        if(!r.ok)throw new Error(j.n);dir.file(j.n,await r.blob())}))}
+    if(Object.keys(orn).length)dir.file('ornaments.json',JSON.stringify(orn,null,2));
+    const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE'}),a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);a.download=name+'.zip';a.click();$('msg').textContent='Done.'
+  }catch(err){$('msg').textContent='Failed: '+err.message}
+  count()};
+</script></main></body></html>

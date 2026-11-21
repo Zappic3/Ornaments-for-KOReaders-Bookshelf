@@ -2,6 +2,20 @@
 
 `packs.yml` in the repo root defines which images go into which pack, how they are processed, and which release each pack is published under. The build script (`scripts/build_packs.py`) reads it on every run.
 
+## Repository setup
+
+| File | Purpose |
+|---|---|
+| `packs.yml` | This configuration. |
+| `scripts/build_packs.py` | The build script. |
+| `scripts/builder.html` | Template of the builder page, copied into the site by the build. |
+| `.github/workflows/build-packs.yml` | Builds everything and publishes the releases and the site. |
+| `.gitignore` | Should contain `build/`, `dist/` and `site/` (generated folders). |
+
+One-time setup: **Settings → Pages → Build and deployment → Source: GitHub Actions**. Without it the deploy job fails.
+
+The workflow runs on every push to `main` (except changes to Markdown files, `docs/` and `.gitignore`) and can be started by hand. Other branches and manual runs from other branches only build and don't touch the releases or the site, so you can test config changes safely. Packs that are renamed or removed are deleted from their release on the next run. Releases themselves are never deleted automatically.
+
 ## Overview
 
 ```yaml
@@ -9,7 +23,8 @@ defaults:      # values every pack inherits
 releases:      # one GitHub release per topic
 shelf:         # reference shelf used to calculate `center` (optional)
 ornaments:     # global ornament rules (optional)
-packs:         # the packs themselves
+parts:         # building blocks: sets of images (optional)
+presets:       # ready-made zips for the releases (`packs:` works as an alias)
 ```
 
 Complete example:
@@ -61,7 +76,7 @@ Values that every pack inherits. A pack can override any of them.
 |---|---|---|
 | `width` | integer | Width of the finished image in pixels. |
 | `height` | integer | Height of the finished image in pixels. |
-| `outline` | integer | Outline width in pixels. `0` disables the outline. |
+| `outline` | integer | Outline width in pixels. `0` disables the outline. Can be overridden per image with [processing fields](#processing-fields-per-image) in ornament rules. |
 | `ornament` | mapping | Base ornament values written for every ornament in every pack (see [Ornament fields](#ornament-fields)). |
 
 Any other pack key (for example `release` or `folder`) can also be set here if all packs should share it. `ornament` here is the only place for base ornament values. A pack's own `ornaments:` list is not inherited from `defaults`.
@@ -84,14 +99,57 @@ releases:
 
 Release titles and notes are overwritten on every run, so edit them here, not on GitHub. Releases are only created or updated on `main`.
 
-## `packs`
+## `parts`
 
-Each entry becomes one `<pack-name>.zip`, attached to its release. The pack name is the file name of the zip, so keep it simple (letters, digits, `-`).
+Parts are the building blocks, for example "figures, front view", "figures, rotated view" and "posters". They don't produce a download by themselves. Presets are built from them, and the builder page lets visitors mix them. Every part is processed twice: as configured (with outline) and with outline 0. If both are identical, as for posters whose rule says `outline: 0`, only one variant exists and the builder shows no outline toggle for that part.
+
+```yaml
+parts:
+  figures-front:
+    release: miku-pm2
+    title: "Figures (front view)"
+    include: ["Hatsune Miku: Project Mirai 2/Figurines/*Front*.png"]
+    ornaments:
+      - match: "Miku Figurine*"
+        info: "The original Miku figurine."
+```
+
+| Key | Required | Description |
+|---|---|---|
+| `release` | yes | Key from `releases` the part belongs to. |
+| `include` | yes | Folders and/or globs, see [`include`](#include). |
+| `exclude` | no | Glob patterns for files to leave out. |
+| `title`, `description` | no | Shown on the builder page. |
+| `ornaments` | no | Ornament rules for this part. They apply wherever the part is used: in presets and in the builder. They can't contain [processing fields](#processing-fields-per-image). |
+
+- File names must be unique across all parts of one release, since parts of a release can be mixed. The build fails and shows both paths otherwise. Two parts may contain the very same file.
+- Whether a part gets an outline is decided per image by the same layers as everywhere else. The outline-free variant forces `outline: 0` for every image.
+- The builder data is written to `packs.json` on the preview site. Each element lists its images and its finished `ornaments.json` entry per variant. The entries come from `defaults.ornament`, the global rules and the part's rules. A preset's own rules are not included, because they only exist in that preset's zip.
+
+## `presets`
+
+Each entry becomes one `<name>.zip`, attached to its release. The name is the file name of the zip, so keep it simple (letters, digits, `-`). `packs:` is the older name for this section and takes the same keys.
+
+```yaml
+presets:
+  miku-pm2-figures:
+    release: miku-pm2
+    parts: [figures-front, figures-rotated]
+
+  miku-pm2-everything-flat:
+    release: miku-pm2
+    outline: 0
+    parts: [figures-front, figures-rotated, posters]
+    exclude: ["*Hachune*"]
+```
+
+A preset combines the images of its `parts` with anything in its own `include`. Its `exclude` patterns apply to both. Parts must belong to the preset's release. The part's ornament rules are applied to its images, followed by the preset's own `ornaments`.
 
 | Key | Required | Description |
 |---|---|---|
 | `release` | yes | Key from `releases` this pack is attached to. |
-| `include` | yes | List of folders and/or globs (see below). |
+| `parts` | no | List of part names. |
+| `include` | no | Extra folders and/or globs (see below). At least one of `parts` and `include` is needed. |
 | `exclude` | no | List of glob patterns for files to leave out. |
 | `width`, `height`, `outline` | no | Override the defaults for this pack. |
 | `description` | no | Text shown under the pack heading on the preview page. |
@@ -198,6 +256,35 @@ The build validates all fields and fails with a message pointing at the offendin
 
 Readers can still override these values in their own personal `ornaments.json` inside the app. The generated file only sets the pack's defaults.
 
+### Processing fields (per image)
+
+Rules can also change how an image is processed, so one pack can mix settings. The typical case is outlines around figures but not around posters, which already have a frame:
+
+```yaml
+defaults:
+  outline: 3
+
+ornaments:
+  - match: "Hatsune Miku: Project Mirai 2/Posters/"
+    outline: 0
+```
+
+| Field | Values | Meaning |
+|---|---|---|
+| `outline` | integer, 0 to 100 | Outline width in pixels for matching images. |
+| `width`, `height` | integer | Size of the finished image for matching images. |
+
+These fields are applied at build time and are never written to `ornaments.json`. They are only allowed in rules, not in `defaults.ornament`. Where several settings apply to one image, later layers win:
+
+1. `defaults`
+2. global `ornaments:` rules
+3. the pack's own `width`, `height` and `outline` keys
+4. the pack's own `ornaments:` rules
+
+This means a pack with `outline: 0` is outline-free for every image, even where a global rule asks for an outline. A rule inside the pack still beats the pack key. Use a global rule for "this kind of image never gets an outline", and the pack key or a pack rule for packs that differ.
+
+On the preview page, a pack with mixed settings shows all outline widths it uses, for example "outlines 0/3 px".
+
 ### Centering
 
 `center` calculates the `lift` for every matching image, so posters and similar pieces hang in the middle without trial and error:
@@ -228,6 +315,18 @@ shelf:
   dp_scale: 1.9     # DPI / 160
 ```
 
-## Preview site
+## Preview site and builder page
 
-The preview site is generated automatically and needs no configuration in `packs.yml`. The main page lists all releases, each release page shows every pack with thumbnails and a download button, and the release description links back to it. Pack headings can be linked directly with `https://OWNER.github.io/REPO/<release>/#<pack-name>`.
+The site is generated automatically and needs no configuration in `packs.yml`. It is published at `https://OWNER.github.io/REPO/`.
+
+- The main page lists all releases. Each release page shows every preset with thumbnails and a download button, and the release description links back to it. Presets can be linked directly with `https://OWNER.github.io/REPO/<release>/#<preset-name>`.
+- If you define `parts`, the main page also links to the builder at `/builder/`.
+
+### Builder page
+
+Visitors pick a release, switch parts on or off, untick single images, choose a pack name and download one zip. The zip contains the images and a merged `ornaments.json`, inside a folder named after the pack, so it can be extracted straight into Bookshelf's `ornaments/` folder. Reserved names (Plain, mine, none, own) are rejected. Zips are created in the visitor's browser, nothing is uploaded anywhere.
+
+- **Outline toggle:** parts that exist with and without outline get a checkbox. Posters whose outline is always 0 don't.
+- **Custom outline:** if any part has the toggle, a "Custom outline" option appears. It lets visitors choose the outline width (1 to 20 px) and colour. The outline is then drawn in the browser on the outline-free image: the figure is scaled into the smaller inner box and its silhouette is grown by the chosen width, which is the same geometry as the build. Against the build's own result, the silhouettes overlap by about 99.5%, so edges can differ by a pixel. It applies to every selected part with the outline option ticked. Thumbnails keep showing the standard outline.
+- **Ornament settings:** the merged `ornaments.json` uses the values calculated for the standard outline. For `center`ed pieces this can be off by a hair with a very different outline width.
+- **Dependencies:** the page loads JSZip 3.10.1 from cdnjs.

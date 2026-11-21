@@ -16,8 +16,9 @@ ornaments:
   - match: "Hatsune Miku: Project Mirai 2/"
     info: "A decorative element from Hatsune Miku: Project Mirai 2"
 
-  # default lift for all posters
+  # all posters: no outline (they already have a frame), centered between the shelves
   - match: "Hatsune Miku: Project Mirai 2/Posters/"
+    outline: 0
     anchor: bottom
     center: wall
 
@@ -197,57 +198,63 @@ ornaments:
       Hatsune Miku: Project Mirai DX
 
 
-packs:
+# Building blocks. Each part is built with and without outline, and the builder
+# page lets visitors mix them. Posters are always built without outline (see the
+# global poster rule above), so they get no outline option.
+parts:
+  figures-front:
+    release: miku-pm2
+    title: "Figures (front view)"
+    description: "Frontal view of the figures."
+    include:
+      - "Hatsune Miku: Project Mirai 2/Figurines/*Front*.png"
+
+  figures-rotated:
+    release: miku-pm2
+    title: "Figures (45° rotated view)"
+    description: "45° rotated view of the figures."
+    include:
+      - "Hatsune Miku: Project Mirai 2/Figurines/*45°*.png"
+
+  posters:
+    release: miku-pm2
+    title: "Posters and paintings"
+    description: "Posters and paintings from the game."
+    include:
+      - "Hatsune Miku: Project Mirai 2/Posters/*.png"
+
+# Ready-made downloads for the release page. Any other combination
+# (for example front figures without outline) can be put together on the builder page.
+presets:
+  miku-pm2-figures:
+    release: miku-pm2
+    description: "Frontal and rotated view, with outline."
+    parts: [figures-front, figures-rotated]
+
+  miku-pm2-figures-front:
+    release: miku-pm2
+    description: "Frontal view only, with outline."
+    parts: [figures-front]
+
+  miku-pm2-figures-rotated:
+    release: miku-pm2
+    description: "45° rotated view only, with outline."
+    parts: [figures-rotated]
+
+  miku-pm2-figures-no-outline:
+    release: miku-pm2
+    description: "Frontal and rotated view, no outline."
+    outline: 0
+    parts: [figures-front, figures-rotated]
+
+  miku-pm2-posters:
+    release: miku-pm2
+    description: "Posters and paintings from the game"
+    parts: [posters]
+
   miku-pm2-all-no-outline:
     release: miku-pm2
     description: "Includes everything (without outlines)"
     outline: 0
     include:
       - "Hatsune Miku: Project Mirai 2"
-
-  miku-pm2-figures:
-    release: miku-pm2
-    description: "Frontal and rotated view, with outline."
-    include:
-      - "Hatsune Miku: Project Mirai 2/Figurines"
-
-  miku-pm2-figures-front:
-    release: miku-pm2
-    description: "Frontal view only, with outline."
-    include:
-      - "Hatsune Miku: Project Mirai 2/Figurines/*Front*.png"
-
-  miku-pm2-figures-rotated:
-    release: miku-pm2
-    description: "45° rotated view only, with outline."
-    include:
-      - "Hatsune Miku: Project Mirai 2/Figurines/*45°*.png"
-
-  miku-pm2-figures-no-outline:
-    release: miku-pm2
-    description: "Frontal and rotated view, no outline."
-    outline: 0
-    include:
-      - "Hatsune Miku: Project Mirai 2/Figurines"
-
-  miku-pm2-figures-front-no-outline:
-    release: miku-pm2
-    description: "Frontal view only, no outline."
-    outline: 0
-    include:
-      - "Hatsune Miku: Project Mirai 2/Figurines/*Front*.png"
-
-  miku-pm2-figures-rotated-no-outline:
-    release: miku-pm2
-    description: "45° rotated view only, no outline."
-    outline: 0
-    include:
-      - "Hatsune Miku: Project Mirai 2/Figurines/*45°*.png"
-
-  miku-pm2-posters:
-    release: miku-pm2
-    description: "Posters and paintings from the game"
-    outline: 0
-    include:
-      - "Hatsune Miku: Project Mirai 2/Posters/*.png"
-

@@ -3,11 +3,16 @@ name: Build ornament packs
 on:
   push:
     branches: [main]
-    paths-ignore: ["README.md", "docs/**"]
+    paths-ignore: ["**.md", "docs/**", ".gitignore"]
   workflow_dispatch:
 
 permissions:
   contents: write   # needed for creating releases
+
+# never run two builds at once, they would update the same releases
+concurrency:
+  group: build-packs
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -23,7 +28,7 @@ jobs:
           sudo apt-get install -y imagemagick
           pip install pyyaml
 
-      - name: Build packs
+      - name: Build packs and site
         run: python scripts/build_packs.py
 
       - name: Publish releases
@@ -44,6 +49,16 @@ jobs:
               gh release create "$tag" "${files[@]}" \
                 --title "$title" --notes "$notes" --target "$GITHUB_SHA" </dev/null
             fi
+
+            # remove assets of packs that no longer exist (renamed or deleted presets)
+            mapfile -t keep < <(printf '%s\n' "${files[@]}" | xargs -n1 basename)
+            mapfile -t assets < <(gh release view "$tag" --json assets -q '.assets[].name' </dev/null)
+            for asset in "${assets[@]}"; do
+              if ! printf '%s\n' "${keep[@]}" | grep -qxF -- "$asset"; then
+                echo "removing stale asset $asset from $tag"
+                gh release delete-asset "$tag" "$asset" --yes </dev/null
+              fi
+            done
           done < <(jq -c '.[]' dist/releases.json)
 
       - name: Upload preview site
